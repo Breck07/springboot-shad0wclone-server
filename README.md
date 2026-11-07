@@ -1,220 +1,106 @@
 # springboot-shad0wclone-server
-A Java-based Command and Control (C2) server simulation built with **Spring Boot**. This project models communication pathways between a centralized server and simulated client beacons, demonstrating core concepts of HTTP-based command handling, client check-ins, data ingestion, file transfers, and binary asset delivery.
 
-Designed as a controlled cybersecurity lab project for exploring backend infrastructure, HTTP communication, API authentication, and server-side data handling.
+A small Spring Boot HTTP server that models a few server-side endpoints for a controlled beacon simulation. The current source includes a status response, a fixed beacon response, text logging, raw TAR upload storage, and configured image/audio file delivery.
 
-## Features
+> **Current source status:** the checked-in application has startup blockers. `MainController` requires `BeaconService`, `UploadService`, and `LoggerService`, but those classes are not registered as Spring beans. The photo and audio `@Value` placeholders in `MainController` are also missing their closing braces. Resolve these issues before expecting the server to start. The endpoint descriptions below document the controller implementation, not a verified running deployment.
 
-- **API Authentication:** Header-based API key authentication using `x-api-key`.
-- **Server Health Checks:** Endpoint for monitoring server availability and retrieving timestamps.
-- **Beacon Simulation:** Simulates client beacon check-ins through a centralized service.
-- **Text Data Ingestion:** Receives and processes text-based data from simulated clients.
-- **Archive Uploads:** Accepts `.tar` archives and delegates processing to an upload service.
-- **Binary Asset Delivery:** Serves configured image and audio files over HTTP.
-- **Service Separation:** Uses dedicated services for beacon management, logging, and upload processing.
+## Project structure
 
-## Technology Stack
+```text
+src/main/java/com/example/demo/
+├── ByteApplication.java   # Spring Boot entry point
+├── MainController.java    # /api HTTP routes
+├── BeaconService.java     # Fixed beacon response
+├── LoggerService.java     # Writes submitted text to a configured path
+├── UploadService.java     # Saves request bytes as a .tar file
+└── RequestDTO.java        # JSON request model for /txtresponse
+src/main/resources/
+└── application.properties
+pom.xml
+mvnw
+mvnw.cmd
+```
 
-- Java
-- Spring Boot
-- Spring Web
-- Spring Dependency Injection
-- HTTP/REST APIs
-- Maven
+## Requirements and dependencies
 
-## Project Configuration
+- Java 25
+- Maven (or the included Maven Wrapper)
+- Network access to Maven repositories when dependencies are not cached
 
-The application uses external configuration properties to manage authentication and asset locations.
+The Maven project uses Spring Boot `4.2.0-SNAPSHOT`, Spring MVC, the Spring Boot MVC test starter, and `springboot4-dotenv` 5.1.0. The configured Spring snapshot repository is declared in `pom.xml`.
 
-Add the following properties to your `application.properties`:
+## Configuration
+
+The checked-in `application.properties` defines these properties. Replace the example paths with paths valid on your machine:
+
+| Property | Purpose |
+| --- | --- |
+| `api.key` | Expected value of the `x-api-key` request header. Its configured value is read from the `API_KEY` environment variable. |
+| `app.upload-dir` | Destination directory for uploaded archive files. |
+| `app.log-dir` | Destination **file path** passed to `Files.write` for text submissions. Despite its name, the implementation treats this as a file, not a directory. |
+| `app.photo.dir` | Path to the image returned by `GET /api/photo`. |
+| `app.audio.dir` | Path to the audio file returned by `GET /api/audio`. |
+
+For example, set `API_KEY` in your shell and update `src/main/resources/application.properties`:
 
 ```properties
-# API Authentication
-api.key=your_secure_api_key_here
-
-# Asset Configuration
-app.photo.dir=/path/to/your/photos/image.png
-app.audio.dir=/path/to/your/audio/sound.mp3
+spring.application.name=byte
+api.key=${API_KEY}
+app.upload-dir=/absolute/path/to/uploads
+app.log-dir=/absolute/path/to/submissions.txt
+app.photo.dir=/absolute/path/to/photo.png
+app.audio.dir=/absolute/path/to/audio.mp3
 ```
 
-Alternatively, these properties can be configured through environment variables or an external configuration provider.
+Use a non-empty secret value for `API_KEY`. The checked-in properties currently use machine-specific `/home/user/...` paths. Do not put a real key in a committed properties file.
 
-**Important:** Never commit actual API keys, credentials, or sensitive file paths to a public repository.
+## Build and run
 
-Ensure `@Value` annotations use correctly formatted property placeholders:
+After resolving the startup blockers listed above and setting the configuration:
 
-```java
-@Value("${app.photo.dir}")
-private String photoPath;
-
-@Value("${app.audio.dir}")
-private String audioPath;
+```bash
+./mvnw clean package
+./mvnw spring-boot:run
 ```
 
-## API Documentation
+On Windows, use `mvnw.cmd` in place of `./mvnw`. No port override is defined in the checked-in properties; Spring Boot's default HTTP port applies.
 
-All endpoints require authentication through the following HTTP request header:
+## HTTP endpoints
 
-```http
-x-api-key: your_secure_api_key_here
+Every mapped endpoint requires the `x-api-key` header. An incorrect supplied key returns `401 Unauthorized`. If the header is absent, Spring's required request-header handling normally returns `400 Bad Request`.
+
+| Method | Path | Request | Implemented response |
+| --- | --- | --- | --- |
+| `GET` | `/api/status` | `x-api-key` | `200` JSON with `status: "up"` and the current local date-time in `time`; sets an in-memory timestamp used by the text and upload handlers. |
+| `GET` | `/api/beacon` | `x-api-key` | `200` JSON: `{"response":"confirmed"}`. |
+| `POST` | `/api/txtresponse` | `x-api-key`, JSON `{"data":"..." }` | Calls the logger and returns the plain-text body `success` with `200`. |
+| `POST` | `/api/upload` | `x-api-key`, `Content-Type: application/x-tar`, raw request bytes | Saves bytes to a randomly named `.tar` file under `app.upload-dir` and returns `Saved archive!` with `200`. |
+| `GET` | `/api/photo` | `x-api-key` | Reads the configured file into memory and returns bytes with `image/png`. |
+| `GET` | `/api/audio` | `x-api-key` | Reads the configured file into memory and returns bytes with `audio/mpeg`. |
+
+Example request (once the application starts):
+
+```bash
+curl -H "x-api-key: $API_KEY" http://localhost:8080/api/beacon
 ```
 
-Requests with missing or invalid API keys receive an `HTTP 401 Unauthorized` response.
+Text submission example:
 
-### Endpoint Overview
-
-| Method | Endpoint           | Content Type      | Description                                |
-| ------ | ------------------ | ----------------- | ------------------------------------------ |
-| GET    | `/api/status`      | application/json  | Returns server health and timestamp.       |
-| GET    | `/api/beacon`      | application/json  | Simulates a client beacon check-in.        |
-| POST   | `/api/txtresponse` | application/json  | Receives text data from simulated clients. |
-| POST   | `/api/upload`      | application/x-tar | Accepts TAR archive uploads.               |
-| GET    | `/api/photo`       | image/png         | Serves a configured image asset.           |
-| GET    | `/api/audio`       | audio/mpeg        | Serves a configured audio asset.           |
-
----
-
-## Endpoint Details
-
-### 1. Server Status
-
-`GET /api/status`
-
-Checks whether the server is operational.
-
-**Example Response (200 OK):**
-
-```json
-{
-  "status": "up",
-  "time": "2026-11-07T16:57:00"
-}
+```bash
+curl -X POST http://localhost:8080/api/txtresponse \
+  -H "x-api-key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"data":"sample text"}'
 ```
 
-### 2. Client Beacon Simulation
+The upload handler stores the incoming body as a TAR file; it does **not** extract or inspect the archive. The text logger writes to the configured path with `Files.write`, which replaces existing file contents on each call rather than appending. Both services catch and print exceptions internally, so their controllers can return success even when a write fails. The timestamp used in text and upload console messages is set by `GET /api/status`; before that request it may be `null`.
 
-`GET /api/beacon`
+## Security and implementation limitations
 
-Simulates a client beacon checking in with the central server.
-
-The endpoint retrieves tasking information through `BeaconService` and returns a dynamically generated JSON response.
-
-**Implementation:**
-
-- Receives an authenticated HTTP GET request.
-- Invokes `BeaconService`.
-- Returns the generated response to the requesting client.
-
-### 3. Text Data Ingestion
-
-`POST /api/txtresponse`
-
-Receives text-based data submitted by simulated clients.
-
-**Request Body:**
-
-```json
-{
-  "data": "Sample simulated client log data"
-}
-```
-
-**Server Processing:**
-
-- Accepts a `RequestDTO` containing the submitted data.
-- Prints an `[ALERT]` notification to standard output.
-- Passes the received data to `LoggerService.logData()`.
-
-### 4. Archive Uploads
-
-`POST /api/upload`
-
-Accepts TAR archive files through an HTTP POST request.
-
-**Request Header:**
-
-```http
-Content-Type: application/x-tar
-```
-
-**Request Body:**
-
-Raw binary contents of a `.tar` archive.
-
-**Server Processing:**
-
-The incoming request is passed to `UploadService`, which handles archive processing and storage.
-
-### 5. Binary Asset Delivery
-
-`GET /api/photo`
-
-`GET /api/audio`
-
-Serves configured static image and audio assets directly through HTTP responses.
-
-**Supported Assets:**
-
-| Endpoint     | Format | MIME Type    |
-| ------------ | ------ | ------------ |
-| `/api/photo` | PNG    | `image/png`  |
-| `/api/audio` | MP3    | `audio/mpeg` |
-
-**Server Processing:**
-
-1. Resolves the configured asset path.
-2. Reads the requested file.
-3. Converts the file contents into a byte stream.
-4. Configures the appropriate HTTP response headers.
-5. Returns the binary content to the requesting client.
-
----
-
-## Architecture
-
-The application uses a service-oriented structure to separate HTTP request handling from application logic.
-
-| Component              | Responsibility                                        |
-| ---------------------- | ----------------------------------------------------- |
-| Controller             | Exposes HTTP endpoints and handles incoming requests. |
-| BeaconService          | Generates simulated beacon responses.                 |
-| LoggerService          | Processes and logs submitted text data.               |
-| UploadService          | Handles incoming TAR archive uploads.                 |
-| RequestDTO             | Represents structured text ingestion requests.        |
-| Application Properties | Stores runtime configuration.                         |
-
-## Security Considerations
-
-This project is intended for authorized, isolated cybersecurity testing and educational simulation.
-
-Important considerations when extending the application:
-
-- Use environment variables or a secrets manager for API credentials.
-- Validate uploaded archives before extraction.
-- Prevent directory traversal and archive path traversal.
-- Enforce file size and request size limits.
-- Restrict asset paths to explicitly configured locations.
-- Use HTTPS when deploying beyond a local testing environment.
-- Implement appropriate request logging and access controls.
-
-The API key mechanism provides basic request authentication and should not be considered a complete production security architecture.
-
-## Learning Objectives
-
-This project explores several practical backend and cybersecurity concepts:
-
-- Building RESTful APIs with Spring Boot.
-- Implementing HTTP request authentication.
-- Managing server-to-client communication patterns.
-- Working with JSON request and response bodies.
-- Handling binary data and file streams.
-- Separating business logic using service layers.
-- Managing application configuration through external properties.
-
-## Disclaimer
-
-This project is an educational C2 server simulation intended for controlled laboratory environments, authorized testing, and cybersecurity research.
-
-It should only be used with systems and data for which you have explicit authorization.
-**Language:** Java
-**Framework:** Spring Boot
+- Authentication is a direct comparison against one shared API key in controller methods. There are no user identities, roles, key rotation, rate limits, or centralized security filters.
+- The application does not configure HTTPS. Do not expose it to an untrusted network without adding transport security and appropriate access controls.
+- Uploads have no visible size limit or archive validation. They are saved as opaque files and are not extracted by this code.
+- File reads load the complete image or audio file into memory. Missing or unreadable files raise I/O errors.
+- The text logger overwrites one configured path and does not append or sanitize submitted text.
+- The source currently has malformed photo/audio property placeholders and missing service bean registration; these prevent the documented endpoints from being relied on until corrected.
+- This code should be used only in an isolated environment with systems and data for which you have authorization.
