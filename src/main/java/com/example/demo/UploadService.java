@@ -9,10 +9,13 @@ import java.nio.file.StandardOpenOption;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 /**
  * uploadService
  */
+
+@Service 
 public class UploadService {
     private final Path uploadDirectory;
 

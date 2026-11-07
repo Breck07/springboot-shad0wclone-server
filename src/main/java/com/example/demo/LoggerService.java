@@ -4,7 +4,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
+@Service 
 public class LoggerService {
     private Path logDir;
     public LoggerService(@Value("${app.log-dir}") String logDir){
