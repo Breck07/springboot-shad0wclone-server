@@ -46,10 +46,10 @@ public class MainController {
     @Value("${api.key}")
     String API_KEY;
 
-    @Value("${app.photo.dir")
+    @Value("${app.photo-dir}")
     String photoDir;
 
-    @Value("${app.audio.dir")
+    @Value("${app.audio-dir}")
     String audioDir;
 
     @GetMapping("/status")
