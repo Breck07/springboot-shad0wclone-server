@@ -1,0 +1,27 @@
+{"properties": [
+  {
+    "name": "api.key",
+    "type": "java.lang.String",
+    "description": "A description for 'api.key'"
+  },
+  {
+    "name": "app.upload-dir",
+    "type": "java.lang.String",
+    "description": "A description for 'app.upload-dir'"
+  },
+  {
+    "name": "app.log-dir",
+    "type": "java.lang.String",
+    "description": "A description for 'app.log-dir'"
+  },
+  {
+    "name": "app.audio.dir",
+    "type": "java.lang.String",
+    "description": "A description for 'app.audio.dir'"
+  },
+  {
+    "name": "app.photo.dir",
+    "type": "java.lang.String",
+    "description": "A description for 'app.photo.dir'"
+  }
+]}
