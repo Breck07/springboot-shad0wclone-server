@@ -102,5 +102,4 @@ The upload handler stores the incoming body as a TAR file; it does **not** extra
 - Uploads have no visible size limit or archive validation. They are saved as opaque files and are not extracted by this code.
 - File reads load the complete image or audio file into memory. Missing or unreadable files raise I/O errors.
 - The text logger overwrites one configured path and does not append or sanitize submitted text.
-- The source currently has malformed photo/audio property placeholders and missing service bean registration; these prevent the documented endpoints from being relied on until corrected.
 - This code should be used only in an isolated environment with systems and data for which you have authorization.
